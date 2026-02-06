@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.venv/
+venv/
+.env
+
+# OS / Editor
+.DS_Store
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# Generated outputs
+portfolio_analysis.csv
+portfolio_analysis.png
+portfolio_iv_history.html
+portfolio_iv_history.png
