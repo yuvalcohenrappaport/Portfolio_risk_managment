@@ -2,6 +2,8 @@ import subprocess
 import smtplib
 import os
 import sys
+
+from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -105,6 +107,9 @@ ERRORS:
         print(f"Failed to send email: {e}")
 
 def main():
+    # Load environment variables from .env if present
+    load_dotenv()
+
     # Configuration
     PYTHON_FILE = 'stock_portfolio_risk.py'  # Path to the Python file you want to run
     RECIPIENT_EMAIL = os.getenv('TRADING_EMAIL_TO')
