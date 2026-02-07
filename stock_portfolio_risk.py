@@ -5,8 +5,7 @@ import numpy as np
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import os
-from datetime import datetime, timedelta
-import plotly.graph_objects as go
+from datetime import datetime
 
 # Apply dark mode
 plt.style.use('dark_background')
@@ -49,38 +48,6 @@ def get_weekly_iv(stock, current_price):
     except Exception:
         return np.nan
 
-
-def get_historical_iv(ticker_symbol, months=6):
-    """
-    Estimate historical weekly IV using realized volatility from price history.
-    Since yfinance doesn't provide historical IV, we calculate realized volatility
-    as a proxy and convert to weekly IV.
-    """
-    try:
-        stock = yf.Ticker(ticker_symbol)
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=months * 30)
-        
-        hist = stock.history(start=start_date.strftime('%Y-%m-%d'), end=end_date.strftime('%Y-%m-%d'))
-        
-        if hist.empty or len(hist) < 10:
-            return pd.Series(dtype=float)
-        
-        # Calculate daily returns
-        hist['Returns'] = hist['Close'].pct_change()
-        
-        # Calculate rolling 20-day realized volatility (annualized)
-        hist['RealizedVol'] = hist['Returns'].rolling(window=20).std() * np.sqrt(252)
-        
-        # Convert to weekly IV (divide by 7)
-        hist['WeeklyIV'] = hist['RealizedVol'] / 7
-        
-        # Resample to weekly data for cleaner plotting
-        weekly_iv = hist['WeeklyIV'].resample('W').last().dropna()
-        
-        return weekly_iv
-    except Exception:
-        return pd.Series(dtype=float)
 
 
 def analyze_portfolio(csv_filepath):
@@ -265,147 +232,6 @@ def analyze_portfolio(csv_filepath):
     plt.savefig(plot_path, dpi=100, bbox_inches='tight')
     print(f"Plot saved to {plot_path}")
     
-    # --- Historical IV Graph ---
-    print("\nFetching historical IV data for the past 6 months...")
-    
-    # Collect historical IV for each stock
-    historical_iv_data = {}
-    for ticker in portfolio_df[ticker_col].values:
-        print(f"  - Fetching historical IV for {ticker}...")
-        iv_series = get_historical_iv(ticker, months=6)
-        if not iv_series.empty:
-            historical_iv_data[ticker] = iv_series
-    
-    if historical_iv_data:
-        # Create a DataFrame with all historical IVs
-        iv_df = pd.DataFrame(historical_iv_data)
-        
-        # Calculate weighted portfolio IV
-        weights = portfolio_df.set_index(ticker_col)['Weight']
-        
-        # Only use stocks that have historical data
-        available_tickers = [t for t in weights.index if t in iv_df.columns]
-        if available_tickers:
-            # Normalize weights for available tickers
-            available_weights = weights[available_tickers]
-            available_weights = available_weights / available_weights.sum()
-            
-            # Calculate weighted portfolio IV
-            portfolio_iv = pd.Series(0.0, index=iv_df.index)
-            for ticker in available_tickers:
-                portfolio_iv += iv_df[ticker].fillna(0) * available_weights[ticker]
-            
-            # Create the historical IV plot
-            fig2, ax3 = plt.subplots(figsize=(14, 8))
-            fig2.suptitle('Historical Weekly IV (Last 6 Months)', fontsize=18)
-            
-            lines = []
-            labels = []
-            
-            # Plot portfolio weighted IV (thicker line)
-            line, = ax3.plot(portfolio_iv.index, portfolio_iv.values * 100, 
-                           linewidth=3, label='Portfolio (Weighted)', color='white', linestyle='--')
-            lines.append(line)
-            labels.append('Portfolio (Weighted)')
-            
-            # Plot individual stock IVs (hidden by default)
-            colors = plt.cm.tab10(np.linspace(0, 1, len(iv_df.columns)))
-            for idx, ticker in enumerate(iv_df.columns):
-                line, = ax3.plot(iv_df.index, iv_df[ticker].values * 100, 
-                               linewidth=1.5, label=ticker, color=colors[idx], alpha=0.7,
-                               visible=False)  # Hidden by default
-                lines.append(line)
-                labels.append(ticker)
-            
-            ax3.set_xlabel('Date', fontsize=12, color='white')
-            ax3.set_ylabel('Weekly IV (%)', fontsize=12, color='white')
-            ax3.grid(True, alpha=0.3)
-            
-            # Create interactive legend with pick events
-            leg = ax3.legend(loc='upper left', bbox_to_anchor=(1.02, 1), fontsize=10)
-            
-            # Map legend lines to original lines
-            lined = {}
-            for idx, (legline, origline) in enumerate(zip(leg.get_lines(), lines)):
-                legline.set_picker(5)  # 5 pts tolerance
-                lined[legline] = origline
-                # Dim legend items for hidden lines (all except portfolio)
-                if idx > 0:  # Skip portfolio line (first one)
-                    legline.set_alpha(0.2)
-            
-            # Store visibility state
-            def on_pick(event):
-                legline = event.artist
-                origline = lined[legline]
-                visible = not origline.get_visible()
-                origline.set_visible(visible)
-                legline.set_alpha(1.0 if visible else 0.2)
-                fig2.canvas.draw()
-            
-            fig2.canvas.mpl_connect('pick_event', on_pick)
-            
-            plt.tight_layout(rect=[0, 0, 0.85, 0.96])
-            
-            # Save the historical IV plot (static PNG)
-            iv_plot_path = os.path.join(os.path.dirname(csv_filepath) or '.', 'portfolio_iv_history.png')
-            plt.savefig(iv_plot_path, dpi=100, bbox_inches='tight')
-            print(f"Historical IV plot saved to {iv_plot_path}")
-            
-            # Create interactive Plotly HTML version
-            fig_plotly = go.Figure()
-            
-            # Add portfolio weighted IV line (visible by default)
-            fig_plotly.add_trace(go.Scatter(
-                x=portfolio_iv.index,
-                y=portfolio_iv.values * 100,
-                mode='lines',
-                name='Portfolio (Weighted)',
-                line=dict(color='white', width=3, dash='dash'),
-                visible=True
-            ))
-            
-            # Add individual stock IV lines (hidden by default - use 'legendonly')
-            plotly_colors = [
-                '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-                '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
-            ]
-            for idx, ticker in enumerate(iv_df.columns):
-                fig_plotly.add_trace(go.Scatter(
-                    x=iv_df.index,
-                    y=iv_df[ticker].values * 100,
-                    mode='lines',
-                    name=ticker,
-                    line=dict(color=plotly_colors[idx % len(plotly_colors)], width=1.5),
-                    visible='legendonly'  # Hidden by default, click legend to show
-                ))
-            
-            fig_plotly.update_layout(
-                title='Historical Weekly IV (Last 6 Months) - Click legend items to show/hide',
-                xaxis_title='Date',
-                yaxis_title='Weekly IV (%)',
-                template='plotly_dark',
-                legend=dict(
-                    yanchor='top',
-                    y=0.99,
-                    xanchor='left',
-                    x=1.02
-                ),
-                hovermode='x unified'
-            )
-            
-            # Save interactive HTML
-            iv_html_path = os.path.join(os.path.dirname(csv_filepath) or '.', 'portfolio_iv_history.html')
-            fig_plotly.write_html(iv_html_path, include_plotlyjs=True, full_html=True)
-            print(f"Interactive IV plot saved to {iv_html_path}")
-            print("\nNote: Open the HTML file in a browser for full interactivity. Click legend items to show/hide lines.")
-            
-            # Show interactive matplotlib plot
-            plt.show()
-        else:
-            print("Could not calculate portfolio historical IV - no matching data.")
-    else:
-        print("Could not fetch historical IV data for any stocks.")
-
 if __name__ == '__main__':
     # Ensure this file exists in your folder!
     PORTFOLIO_FILE = 'Positions_main.csv' 
