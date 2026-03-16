@@ -225,21 +225,22 @@ def _portfolio_text_to_html(body_text, results):
     output_text = results['stdout'].strip() if results['stdout'] else '(no output)'
     errors_text = results['stderr'].strip() if results['stderr'] else ''
 
-    # Format output lines with spacing
+    # Format output lines with spacing — skip consecutive empty/separator lines
     output_lines = []
+    prev_empty = False
     for line in output_text.split('\n'):
         stripped = line.strip()
-        if not stripped:
-            output_lines.append('<div style="height:8px;"></div>')
-        elif stripped.startswith('=') or stripped.startswith('-'):
-            output_lines.append(
-                f'<div style="border-bottom:1px solid #333;margin:12px 0;"></div>'
-            )
-        elif ':' in stripped and not stripped.startswith(' '):
+        if not stripped or re.match(r'^[=\-\+\|]{3,}$', stripped):
+            if not prev_empty:
+                output_lines.append('<div style="height:6px;"></div>')
+            prev_empty = True
+            continue
+        prev_empty = False
+        if ':' in stripped and not stripped.startswith(' ') and not stripped.startswith('saved to'):
             # Key-value line (e.g. "Total Value: $123,456")
             parts = stripped.split(':', 1)
             output_lines.append(
-                f'<div style="padding:4px 0;display:flex;justify-content:space-between;">'
+                f'<div style="padding:3px 0;display:flex;justify-content:space-between;">'
                 f'<span style="color:#90a4ae;">{parts[0].strip()}</span>'
                 f'<span style="color:#e0e0e0;font-weight:500;">{parts[1].strip()}</span>'
                 f'</div>'
