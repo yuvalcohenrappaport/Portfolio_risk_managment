@@ -124,12 +124,14 @@ def build_catalyst_html(summary_path, json_path):
 
                 body_html = _text_to_html(content)
                 return (
-                    '<div style="font-family:monospace;background:#1a1a2e;color:#e0e0e0;'
-                    'padding:16px;border-radius:6px;margin-top:24px;">'
-                    '<h2 style="color:#2196F3;margin-top:0;">Catalyst Alerts</h2>'
-                    f'<p style="color:#90a4ae;margin-top:-8px;font-size:0.85em;">'
+                    '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #333;">'
+                    '<h2 style="color:#2196F3;margin:0 0 4px 0;">Catalyst Alerts</h2>'
+                    f'<p style="color:#666;margin:0 0 16px 0;font-size:0.85em;">'
                     f'Last updated: {updated_str} IST</p>'
+                    f'<div style="padding:16px;background:#16213e;border-radius:6px;'
+                    f'font-family:monospace;font-size:0.9em;line-height:1.8;">'
                     f'{body_html}'
+                    f'</div>'
                     '</div>'
                 )
         except Exception as e:
@@ -186,10 +188,9 @@ def build_catalyst_html(summary_path, json_path):
 
             body_html = '\n'.join(rows)
             return (
-                '<div style="font-family:sans-serif;background:#1a1a2e;color:#e0e0e0;'
-                'padding:16px;border-radius:6px;margin-top:24px;">'
-                '<h2 style="color:#2196F3;margin-top:0;">Catalyst Alerts</h2>'
-                f'<p style="color:#90a4ae;margin-top:-8px;font-size:0.85em;">'
+                '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #333;">'
+                '<h2 style="color:#2196F3;margin:0 0 4px 0;">Catalyst Alerts</h2>'
+                f'<p style="color:#666;margin:0 0 16px 0;font-size:0.85em;">'
                 f'Last updated: {updated_str} IST</p>'
                 f'{body_html}'
                 '</div>'
@@ -199,6 +200,69 @@ def build_catalyst_html(summary_path, json_path):
 
     # Neither file exists or both are empty
     return ''
+
+
+def _portfolio_text_to_html(body_text, results):
+    """Convert the portfolio risk report plain text into styled HTML matching the catalyst theme."""
+    status_color = '#66bb6a' if results['success'] else '#ef5350'
+    status_icon = '&#10003;' if results['success'] else '&#10007;'
+    status_label = 'Success' if results['success'] else 'Failed'
+
+    # Parse the OUTPUT section from the report text
+    output_text = results['stdout'].strip() if results['stdout'] else '(no output)'
+    errors_text = results['stderr'].strip() if results['stderr'] else ''
+
+    # Format output lines with spacing
+    output_lines = []
+    for line in output_text.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            output_lines.append('<div style="height:8px;"></div>')
+        elif stripped.startswith('=') or stripped.startswith('-'):
+            output_lines.append(
+                f'<div style="border-bottom:1px solid #333;margin:12px 0;"></div>'
+            )
+        elif ':' in stripped and not stripped.startswith(' '):
+            # Key-value line (e.g. "Total Value: $123,456")
+            parts = stripped.split(':', 1)
+            output_lines.append(
+                f'<div style="padding:4px 0;display:flex;justify-content:space-between;">'
+                f'<span style="color:#90a4ae;">{parts[0].strip()}</span>'
+                f'<span style="color:#e0e0e0;font-weight:500;">{parts[1].strip()}</span>'
+                f'</div>'
+            )
+        else:
+            output_lines.append(
+                f'<div style="padding:2px 0;color:#cfd8dc;">{stripped}</div>'
+            )
+
+    output_html = '\n'.join(output_lines)
+
+    errors_html = ''
+    if errors_text:
+        errors_html = (
+            '<div style="margin-top:20px;padding:12px;background:#2d1b1b;border-radius:6px;'
+            'border-left:3px solid #ef5350;">'
+            '<h3 style="color:#ef5350;margin:0 0 8px 0;font-size:0.95em;">Errors</h3>'
+            f'<pre style="color:#ef9a9a;margin:0;white-space:pre-wrap;font-size:0.85em;">{errors_text}</pre>'
+            '</div>'
+        )
+
+    return (
+        '<div style="margin-bottom:24px;">'
+        '<h2 style="color:#2196F3;margin:0 0 4px 0;">Portfolio Risk Analysis</h2>'
+        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">'
+        f'<span style="color:{status_color};font-size:1.2em;">{status_icon}</span>'
+        f'<span style="color:{status_color};font-weight:600;">{status_label}</span>'
+        f'<span style="color:#666;font-size:0.85em;">| {datetime.now().strftime("%Y-%m-%d %H:%M")}</span>'
+        f'</div>'
+        f'<div style="padding:16px;background:#16213e;border-radius:6px;'
+        f'font-family:monospace;font-size:0.9em;line-height:1.6;">'
+        f'{output_html}'
+        f'</div>'
+        f'{errors_html}'
+        '</div>'
+    )
 
 
 def send_email(results, file_path, recipient_email, sender_email, sender_password, catalyst_html=''):
@@ -235,21 +299,27 @@ ERRORS:
 {results['stderr'] if results['stderr'] else '(no errors)'}
     """
 
-    if catalyst_html:
-        # Multipart/alternative: plain text + HTML (with catalyst section)
-        alternative = MIMEMultipart('alternative')
-        alternative.attach(MIMEText(body, 'plain'))
-        html_body = (
-            '<html><body>'
-            f'<pre style="font-family:monospace;white-space:pre-wrap;">{body}</pre>'
-            f'{catalyst_html}'
-            '</body></html>'
-        )
-        alternative.attach(MIMEText(html_body, 'html'))
-        msg.attach(alternative)
-    else:
-        # No catalyst data — plain text only (existing behavior preserved)
-        msg.attach(MIMEText(body, 'plain'))
+    # Always send HTML email with consistent dark theme
+    alternative = MIMEMultipart('alternative')
+    alternative.attach(MIMEText(body, 'plain'))
+
+    # Convert the portfolio report to styled HTML
+    portfolio_html = _portfolio_text_to_html(body, results)
+
+    html_body = (
+        '<html><body style="margin:0;padding:0;background:#121212;">'
+        '<div style="max-width:700px;margin:0 auto;padding:24px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;'
+        'background:#1a1a2e;color:#e0e0e0;border-radius:8px;">'
+        f'{portfolio_html}'
+        f'{catalyst_html}'
+        '<div style="margin-top:32px;padding-top:16px;border-top:1px solid #333;'
+        'color:#666;font-size:0.8em;text-align:center;">'
+        f'Generated {datetime.now().strftime("%Y-%m-%d %H:%M")} IST</div>'
+        '</div>'
+        '</body></html>'
+    )
+    alternative.attach(MIMEText(html_body, 'html'))
+    msg.attach(alternative)
 
     # Extract file paths from stdout and attach if they exist (PNG and HTML)
     file_paths = []
