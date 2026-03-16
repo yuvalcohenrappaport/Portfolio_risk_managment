@@ -67,16 +67,29 @@ def _text_to_html(text):
     """Convert plain text catalyst summary to HTML with formatting."""
     lines = text.split('\n')
     html_lines = []
+    in_changes_section = False
     for line in lines:
         stripped = line.strip()
         # Section headers with === or --- separators
         if re.match(r'^[=\-]{4,}$', stripped):
             continue  # Skip pure separator lines
         elif re.match(r'^(CHANGES SINCE|CATALYST DETAILS|Generated:)', stripped):
-            html_lines.append(f'<h3 style="color:#90a4ae;margin-top:1.2em;margin-bottom:0.3em;">{stripped}</h3>')
+            in_changes_section = 'CHANGES SINCE' in stripped
+            html_lines.append(f'<h3 style="color:#90a4ae;margin-top:1.5em;margin-bottom:0.6em;">{stripped}</h3>')
+        elif re.match(r'^Status updates', stripped):
+            html_lines.append(f'<div style="color:#90a4ae;margin-bottom:8px;">{stripped}</div>')
         elif re.match(r'^[A-Z]{2,6}$', stripped):
             # All-caps ticker header (2–6 chars)
-            html_lines.append(f'<strong style="font-size:1.1em;">{stripped}</strong>')
+            in_changes_section = False
+            html_lines.append(f'<strong style="font-size:1.1em;display:inline-block;margin-top:16px;">{stripped}</strong>')
+        elif in_changes_section and stripped.startswith('~'):
+            # Change entry in CHANGES section — give it a card-like appearance
+            colorized = _colorize_direction_tags(line)
+            html_lines.append(
+                f'<div style="margin:10px 0;padding:10px 12px;background:#1e2a4a;'
+                f'border-radius:4px;border-left:3px solid #2196F3;line-height:1.7;">'
+                f'{colorized}</div>'
+            )
         else:
             # Colorize direction tags, then append as a line
             colorized = _colorize_direction_tags(line)
