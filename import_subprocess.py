@@ -377,13 +377,15 @@ def main():
     SENDER_PASSWORD = os.getenv('TRADING_EMAIL_PASSWORD')  # Use App Password for Gmail
 
     # Catalyst data paths (written by substack-automation pipeline)
+    import platform
+    _trading_default = '~/trading' if platform.system() == 'Linux' else '~/Documents/Trading'
     CATALYST_SUMMARY_FILE = os.getenv(
         'CATALYST_SUMMARY_FILE',
-        os.path.expanduser('~/Documents/Trading/catalyst_summary.txt')
+        os.path.expanduser(f'{_trading_default}/catalyst_summary.txt')
     )
     CATALYSTS_JSON_FILE = os.getenv(
         'CATALYSTS_JSON_FILE',
-        os.path.expanduser('~/Documents/Trading/catalysts.json')
+        os.path.expanduser(f'{_trading_default}/catalysts.json')
     )
 
     if not RECIPIENT_EMAIL or not SENDER_EMAIL or not SENDER_PASSWORD:
