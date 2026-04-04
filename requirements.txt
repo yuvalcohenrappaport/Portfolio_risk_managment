@@ -3,4 +3,5 @@ yfinance==1.2.0
 matplotlib==3.10.8
 numpy==2.4.3
 python-dotenv==1.2.2
-fpdf2
+requests>=2.33.0
+fpdf2==2.8.3
