@@ -12,6 +12,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 def run_python_file(file_path):
     """
@@ -127,12 +128,7 @@ def build_catalyst_html(summary_path, json_path):
             content = summary_p.read_text(encoding='utf-8').strip()
             if content:
                 mtime = summary_p.stat().st_mtime
-                # Format mtime as IST (UTC+3)
-                dt_utc = datetime.fromtimestamp(mtime, tz=timezone.utc)
-                # IST = UTC+3 (Israel Standard Time)
-                from datetime import timedelta
-                ist_offset = timedelta(hours=3)
-                dt_ist = dt_utc + ist_offset
+                dt_ist = datetime.fromtimestamp(mtime, tz=ZoneInfo("Asia/Jerusalem"))
                 updated_str = dt_ist.strftime('%Y-%m-%d %H:%M')
 
                 body_html = _text_to_html(content)
@@ -159,10 +155,7 @@ def build_catalyst_html(summary_path, json_path):
                 return ''
 
             mtime = json_p.stat().st_mtime
-            from datetime import timedelta
-            dt_utc = datetime.fromtimestamp(mtime, tz=timezone.utc)
-            ist_offset = timedelta(hours=3)
-            dt_ist = dt_utc + ist_offset
+            dt_ist = datetime.fromtimestamp(mtime, tz=ZoneInfo("Asia/Jerusalem"))
             updated_str = dt_ist.strftime('%Y-%m-%d %H:%M')
 
             rows = []
