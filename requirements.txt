@@ -27,7 +27,7 @@ packageurl-python==0.17.6
 packaging==26.0
 pandas==3.0.2
 peewee==4.0.2
-pillow==12.1.1
+pillow==12.2.0
 pip-api==0.0.34
 pip-requirements-parser==32.0.1
 pip_audit==2.10.0
