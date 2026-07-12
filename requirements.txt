@@ -19,7 +19,7 @@ license-expression==30.4.4
 markdown-it-py==4.0.0
 matplotlib==3.10.8
 mdurl==0.1.2
-msgpack==1.1.2
+msgpack==1.2.1
 multitasking==0.0.12
 narwhals==2.18.0
 numpy==2.4.4
@@ -45,7 +45,7 @@ requests==2.33.1
 rich==14.3.3
 six==1.17.0
 sortedcontainers==2.4.0
-soupsieve==2.8.3
+soupsieve==2.8.4
 tomli==2.4.1
 tomli_w==1.2.0
 typing_extensions==4.15.0
